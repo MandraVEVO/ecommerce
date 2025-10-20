@@ -1,9 +1,11 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login-user.dto';
 import { RegisterDto } from './dto/register-user.dto';
+import { UserRoles } from '../common/enums/user-roles.enum';
 import * as bcrypt from 'bcrypt';
+import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -50,12 +52,7 @@ export class AuthService {
       throw new UnauthorizedException('El email ya está registrado');
     }
 
-    console.log('🔍 Register data:', {
-      email,
-      fullName,
-      hasPassword: !!password,
-      passwordLength: password?.length
-    });
+    
 
     if (!password) {
       throw new UnauthorizedException('La contraseña es requerida');
@@ -63,11 +60,7 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 12);
     
-    console.log('🔍 Hashed password:', {
-      original: password,
-      hashed: hashedPassword.substring(0, 20) + '...',
-      hashedLength: hashedPassword.length
-    });
+   
 
     const newUser = await this.usersService.create({
       email: email.toLowerCase(),
@@ -75,11 +68,7 @@ export class AuthService {
       fullName,
     });
 
-    console.log('User created:', {
-      id: newUser.id,
-      email: newUser.email,
-      fullName: newUser.fullName
-    });
+    
 
     return this.generateJwt(newUser);
   }
@@ -120,5 +109,76 @@ export class AuthService {
     } catch (error) {
       throw new UnauthorizedException('Token inválido');
     }
+  }
+
+   async updateProveedor(userId: string) {
+    // 1. Verificar que el usuario existe
+    const user = await this.usersService.findById(userId);
+    
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+    }
+
+    // 2. Verificar que el usuario esté activo
+    if (!user.isActive) {
+      throw new BadRequestException('El usuario está inactivo y no puede ser actualizado');
+    }
+
+    // 3. Verificar que no sea ya un proveedor
+    if (user.role === UserRoles.PROVEEDOR) {
+      throw new BadRequestException('El usuario ya tiene rol de proveedor');
+    }
+
+    // 4. Verificar que no sea un admin
+    if (user.role === UserRoles.ADMIN) {
+      throw new BadRequestException('No se puede cambiar el rol de un administrador');
+    }
+
+    // 5. Guardar el rol anterior
+    const previousRole = user.role;
+
+    // 6. ✅ Actualizar usando el método específico de UsersService
+    const updatedUser = await this.usersService.updateToProveedor(userId);
+
+    // 7. Retornar respuesta completa
+    return {
+      message: 'Rol actualizado a proveedor exitosamente',
+      previousRole: previousRole,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        role: updatedUser.role,
+        isActive: updatedUser.isActive,
+        updatedAt: new Date().toISOString(),
+      }
+    };
+  }
+
+
+  async updateToAdmin(userId: string) {
+    const user = await this.usersService.findById(userId);
+    
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+    }
+
+    if (!user.isActive) {
+      throw new BadRequestException('El usuario está inactivo y no puede ser actualizado');
+    }
+
+    const updatedUser = await this.usersService.updateToAdmin(userId);
+
+    return {
+      message: 'Rol actualizado a administrador exitosamente',
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        role: updatedUser.role,
+        isActive: updatedUser.isActive,
+        updatedAt: new Date().toISOString(),
+      }
+    };
   }
 }
