@@ -1,3 +1,4 @@
+import { MetodoPago } from 'src/common/enums/metodo-pago.enum';
 import { UserRoles } from './../../common/enums/user-roles.enum';
 import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
@@ -34,4 +35,28 @@ export class User {
 
     @Column('text', { nullable: true })
     direccion?: string;
+
+    @Column('text', { nullable: true })
+    giro: string;
+
+    @Column('text', { nullable: true })
+    descripcion?: string;
+
+    @Column('text', { nullable: true })
+    telefono?: string;
+
+    @Column('text', { nullable: true })
+    wasap?: string;
+
+    @Column('text', { nullable: true })
+    horario?: string;
+
+    @Column('boolean', { default: false }) 
+    verificado: boolean;
+
+    @Column({ type: 'enum', enum: MetodoPago, default: MetodoPago.CUERPO })
+    metodoPago?: MetodoPago;
+
+    @Column('text', { nullable: true })
+    compraMinima?: string;
 }

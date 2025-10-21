@@ -16,6 +16,8 @@ async function bootstrap() {
     transform: true,
   }));
 
+  app.enableCors();
+
   // Configurar OpenAPI/Swagger (base para Scalar)
   const config = new DocumentBuilder()
     .setTitle('E-commerce Negocios API')

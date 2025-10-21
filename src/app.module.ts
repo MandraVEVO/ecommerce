@@ -4,11 +4,15 @@ import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductosModule } from './productos/productos.module';
+import { RatingModule } from './rating/rating.module';
 
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      
+    }),
     TypeOrmModule.forRoot({
     ssl: process.env.STAGE === 'prod',
     extra: {
@@ -28,7 +32,7 @@ import { ProductosModule } from './productos/productos.module';
    
     
     
-    AuthModule, UsersModule, ProductosModule],
+    AuthModule, UsersModule, ProductosModule, RatingModule],
   controllers: [],
   providers: [],
 })
