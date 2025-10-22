@@ -236,51 +236,53 @@ export class UsersService {
 
 
   async updateToAdmin(userId: string) {
-  // 1. Verificar que el usuario existe
-  const user = await this.findById(userId);
-  
-  if (!user) {
-    throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+  // ❌ INCORRECTO - Probablemente tienes algo así:
+  // await this.usersRepository.update({}, { role: UserRoles.ADMIN });
+  // await this.usersRepository.update(undefined, { role: UserRoles.ADMIN });
+
+  // ✅ CORRECTO - Verifica que el userId no esté vacío
+  if (!userId || userId.trim() === '') {
+    throw new BadRequestException('ID de usuario es requerido');
   }
 
-  // 2. Verificar que el usuario esté activo
-  if (!user.isActive) {
-    throw new BadRequestException('El usuario está inactivo y no puede ser actualizado');
-  }
-
-  // 3. Verificar que no sea ya un admin
-  if (user.role === UserRoles.ADMIN) {
-    throw new BadRequestException('El usuario ya tiene rol de administrador');
-  }
-
-  // 4. Guardar el rol anterior
-  const previousRole = user.role;
-
-  // 5. ACTUALIZAR el rol a ADMIN en la base de datos
-  await this.userRepository.update(userId, { 
-    role: UserRoles.ADMIN,
-    updatedAt: new Date()
+  // Buscar usuario primero
+  const user = await this.userRepository.findOne({ 
+    where: { id: userId } 
   });
 
-  //  6. Obtener el usuario actualizado desde la BD
-  const updatedUser = await this.findById(userId);
-
-  if (!updatedUser) {
-    throw new NotFoundException(`Usuario con ID ${userId} no encontrado después de la actualización`);
+  if (!user) {
+    throw new NotFoundException('Usuario no encontrado');
   }
 
-  // 7. Retornar respuesta completa
+  // Verificar que no sea admin ya
+  if (user.role === UserRoles.ADMIN) {
+    throw new BadRequestException('El usuario ya es administrador');
+  }
+
+  // Actualizar rol
+  await this.userRepository.update(
+    { id: userId }, // ✅ Criterio válido
+    { role: UserRoles.ADMIN }
+  );
+
+  // Retornar usuario actualizado
+  const updatedUser = await this.userRepository.findOne({ 
+    where: { id: userId } 
+  });
+
+  if (!updatedUser) {
+    throw new NotFoundException('Usuario no encontrado después de la actualización');
+  }
+
   return {
-    message: 'Rol actualizado a administrador exitosamente',
-    previousRole: previousRole,
+    message: 'Rol actualizado a admin exitosamente',
     user: {
       id: updatedUser.id,
       email: updatedUser.email,
       fullName: updatedUser.fullName,
       role: updatedUser.role,
       isActive: updatedUser.isActive,
-      updatedAt: new Date().toISOString(),
-    }
+    },
   };
 }
 
