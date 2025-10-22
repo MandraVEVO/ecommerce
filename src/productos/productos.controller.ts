@@ -68,13 +68,13 @@ export class ProductosController {
   //  LISTAR TODOS LOS PRODUCTOS APROBADOS (público)
   @Public()
   @Get()
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ 
-    summary: ' Listar todos los productos aprobados',
-    description: 'Obtener lista de productos aprobados y disponibles. No requiere autenticación.'
+    summary: ' Obtener todos los productos aprobados (Público)',
+    description: 'Lista de productos aprobados y disponibles con estadísticas'
   })
-  @ApiResponse({ status: 200, description: ' Lista de productos' })
-  findAll() {
-    return this.productosService.findAll();
+  findAll(@GetUser() user?: any) {
+    return this.productosService.findAll(user?.id);
   }
 
   // MIS PRODUCTOS (proveedor autenticado)
@@ -120,15 +120,16 @@ export class ProductosController {
   //  VER UN PRODUCTO
   @Public()
   @Get(':id')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ 
-    summary: ' Ver producto',
-    description: 'Obtener detalles completos de un producto específico.'
+    summary: ' Obtener un producto por ID (Público)',
+    description: 'Detalle completo del producto con estadísticas'
   })
-  @ApiParam({ name: 'id', description: 'UUID del producto' })
-  @ApiResponse({ status: 200, description: 'Detalles del producto' })
-  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.productosService.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @GetUser() user?: any
+  ) {
+    return this.productosService.findOne(id, user?.id);
   }
 
   //  APROBAR PRODUCTO (solo admin)

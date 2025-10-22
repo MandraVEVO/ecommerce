@@ -41,7 +41,7 @@ export class FirebaseService implements OnModuleInit {
 
         let serviceAccountPath: string | null = null;
 
-        console.log('\n🔍 Buscando credenciales de Firebase...');
+        console.log('\n Buscando credenciales de Firebase...');
         
         for (const pathToCheck of possiblePaths) {
           if (fs.existsSync(pathToCheck)) {

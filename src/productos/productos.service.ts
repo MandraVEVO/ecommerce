@@ -101,86 +101,77 @@ export class ProductosService {
   }
 
   /**
-   * OBTENER TODOS LOS PRODUCTOS APROBADOS (público)
+   * 📋 OBTENER TODOS LOS PRODUCTOS APROBADOS con likes y ratings
    */
-  async findAll() {
-    const productos = await this.productoRepository.find({
-      where: { 
-        isApproved: true,
-        isAvailable: true,
-        deletedAt: IsNull(), //  Corrección: usar IsNull() en lugar de null
-      },
-      relations: ['proveedor'],
-      select: {
-        id: true,
-        nombre: true,
-        descripcion: true,
-        precio: true,
-        imagen: true,
-        isAvailable: true,
-        createdAt: true,
-        proveedorId: true, //  Agregar para evitar errores
-        proveedor: {
-          id: true,
-          fullName: true,
-          nombreEmpresa: true,
-          telefono: true,
-          wasap: true,
-          direccion: true,
-          horario: true,
-          metodoPago: true,
-          verificado: true,
-        }
-      },
-      order: { createdAt: 'DESC' }
-    });
+  async findAll(userId?: string) {
+    const productos = await this.productoRepository
+      .createQueryBuilder('producto')
+      .leftJoinAndSelect('producto.proveedor', 'proveedor')
+      .leftJoin('producto.ratings', 'ratings', 'ratings.deletedAt IS NULL')
+      .leftJoin('producto.likes', 'likes')
+      .leftJoin('likes.user', 'likeUser', 'likeUser.id = :userId', { userId: userId || '' })
+      .addSelect([
+        'COUNT(DISTINCT ratings.id) as totalRatings',
+        'COALESCE(AVG(ratings.rating), 0) as averageRating',
+        'COUNT(DISTINCT likes.id) as totalLikes',
+        'CASE WHEN likeUser.id IS NOT NULL THEN true ELSE false END as isLiked'
+      ])
+      .where('producto.isApproved = :isApproved', { isApproved: true })
+      .andWhere('producto.isAvailable = :isAvailable', { isAvailable: true })
+      .andWhere('producto.deletedAt IS NULL')
+      .groupBy('producto.id')
+      .addGroupBy('proveedor.id')
+      .addGroupBy('likeUser.id')
+      .orderBy('producto.createdAt', 'DESC')
+      .getRawAndEntities();
+
+    const productosConEstadisticas = productos.entities.map((producto, index) => ({
+      ...producto,
+      totalRatings: parseInt(productos.raw[index].totalRatings) || 0,
+      averageRating: parseFloat(productos.raw[index].averageRating) || 0,
+      totalLikes: parseInt(productos.raw[index].totalLikes) || 0,
+      isLiked: productos.raw[index].isLiked === 'true' || productos.raw[index].isLiked === true,
+    }));
 
     return {
-      total: productos.length,
-      productos,
+      total: productosConEstadisticas.length,
+      productos: productosConEstadisticas,
     };
   }
 
   /**
-   * 🔍 OBTENER UN PRODUCTO POR ID
+   *  OBTENER UN PRODUCTO POR ID con estadísticas
    */
-  async findOne(id: string) {
-    const producto = await this.productoRepository.findOne({
-      where: { id },
-      relations: ['proveedor'],
-      select: {
-        id: true,
-        nombre: true,
-        descripcion: true,
-        precio: true,
-        imagen: true,
-        isAvailable: true,
-        isApproved: true,
-        createdAt: true,
-        updatedAt: true,
-        proveedorId: true, //  Agregar
-        proveedor: {
-          id: true,
-          fullName: true,
-          nombreEmpresa: true,
-          email: true,
-          telefono: true,
-          wasap: true,
-          direccion: true,
-          giro: true,
-          descripcion: true,
-          horario: true,
-          metodoPago: true,
-          verificado: true,
-        }
-      }
-    });
+  async findOne(id: string, userId?: string) {
+    const producto = await this.productoRepository
+      .createQueryBuilder('producto')
+      .leftJoinAndSelect('producto.proveedor', 'proveedor')
+      .leftJoin('producto.ratings', 'ratings', 'ratings.deletedAt IS NULL')
+      .leftJoin('producto.likes', 'likes')
+      .leftJoin('likes.user', 'likeUser', 'likeUser.id = :userId', { userId: userId || '' })
+      .addSelect([
+        'COUNT(DISTINCT ratings.id) as totalRatings',
+        'COALESCE(AVG(ratings.rating), 0) as averageRating',
+        'COUNT(DISTINCT likes.id) as totalLikes',
+        'CASE WHEN likeUser.id IS NOT NULL THEN true ELSE false END as isLiked'
+      ])
+      .where('producto.id = :id', { id })
+      .groupBy('producto.id')
+      .addGroupBy('proveedor.id')
+      .addGroupBy('likeUser.id')
+      .getRawAndEntities();
 
-    if (!producto) {
+    if (!producto.entities[0]) {
       throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
 
-    return producto;
+    return {
+      ...producto.entities[0],
+      totalRatings: parseInt(producto.raw[0].totalRatings) || 0,
+      averageRating: parseFloat(producto.raw[0].averageRating) || 0,
+      totalLikes: parseInt(producto.raw[0].totalLikes) || 0,
+      isLiked: producto.raw[0].isLiked === 'true' || producto.raw[0].isLiked === true,
+    };
   }
 
   /**

@@ -256,13 +256,13 @@ export class UsersService {
   // 4. Guardar el rol anterior
   const previousRole = user.role;
 
-  // ✅ 5. ACTUALIZAR el rol a ADMIN en la base de datos
+  // 5. ACTUALIZAR el rol a ADMIN en la base de datos
   await this.userRepository.update(userId, { 
     role: UserRoles.ADMIN,
     updatedAt: new Date()
   });
 
-  // ✅ 6. Obtener el usuario actualizado desde la BD
+  //  6. Obtener el usuario actualizado desde la BD
   const updatedUser = await this.findById(userId);
 
   if (!updatedUser) {

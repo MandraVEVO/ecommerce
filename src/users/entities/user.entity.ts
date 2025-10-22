@@ -2,6 +2,8 @@ import { MetodoPago } from 'src/common/enums/metodo-pago.enum';
 import { UserRoles } from './../../common/enums/user-roles.enum';
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Producto } from 'src/productos/entities/producto.entity';
+import { Rating } from 'src/rating/entities/rating.entity';
+import { ProductLike } from 'src/rating/entities/product-like.entity';
 
 @Entity()
 export class User {
@@ -11,6 +13,7 @@ export class User {
 
     @Column('text', { unique: true })
     email: string;
+    
     @Column('text', { select: false })
     password: string;
 
@@ -22,6 +25,7 @@ export class User {
 
     @Column('boolean', { default: true })
     isActive: boolean;
+    
     @Column('timestamp with time zone', { default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
 
@@ -61,8 +65,15 @@ export class User {
     @Column('text', { nullable: true })
     compraMinima?: string;
 
-     // ✅ RELACIÓN: Un proveedor puede tener MUCHOS productos
+    // RELACIÓN: Un proveedor puede tener MUCHOS productos
     @OneToMany(() => Producto, (producto) => producto.proveedor)
     productos?: Producto[];
 
+    //  NUEVA RELACIÓN: Un usuario puede tener MUCHAS calificaciones/reseñas
+    @OneToMany(() => Rating, (rating) => rating.user)
+    ratings?: Rating[];
+
+    // NUEVA RELACIÓN: Un usuario puede dar MUCHOS likes
+    @OneToMany(() => ProductLike, (like) => like.user)
+    likedProducts?: ProductLike[];
 }

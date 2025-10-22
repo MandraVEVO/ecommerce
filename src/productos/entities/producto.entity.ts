@@ -1,5 +1,7 @@
 import { User } from "src/users/entities/user.entity";
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Rating } from "src/rating/entities/rating.entity";
+import { ProductLike } from "src/rating/entities/product-like.entity";
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
 export class Producto {
@@ -34,16 +36,36 @@ export class Producto {
     @Column('boolean', { default: false })
     isApproved: boolean;
 
-    // ✅ RELACIÓN: Muchos productos pertenecen a UN proveedor
+    //  RELACIÓN: Muchos productos pertenecen a UN proveedor
     @ManyToOne(() => User, (user) => user.productos, {
-        eager: false, // No cargar automáticamente el proveedor
-        nullable: false, // El producto DEBE tener un proveedor
-        onDelete: 'CASCADE' // Si se elimina el proveedor, se eliminan sus productos
+        eager: false,
+        nullable: false,
+        onDelete: 'CASCADE'
     })
-    @JoinColumn({ name: 'proveedorId' }) // Nombre de la columna FK en la BD
+    @JoinColumn({ name: 'proveedorId' })
     proveedor: User;
 
-    // ✅ Columna de FK (se crea automáticamente pero la declaramos para poder usarla)
     @Column('uuid')
     proveedorId: string;
+
+    // NUEVA RELACIÓN: Un producto puede tener MUCHAS calificaciones
+    @OneToMany(() => Rating, (rating) => rating.producto)
+    ratings?: Rating[];
+
+    // NUEVA RELACIÓN: Un producto puede tener MUCHOS likes
+    @OneToMany(() => ProductLike, (like) => like.producto)
+    likes?: ProductLike[];
+
+    // CAMPOS CALCULADOS (se pueden agregar como métodos o computed properties)
+    // Promedio de calificación
+    averageRating?: number;
+    
+    // Total de calificaciones
+    totalRatings?: number;
+    
+    // Total de likes
+    totalLikes?: number;
+    
+    // Si el usuario actual dio like (se calcula en runtime)
+    isLiked?: boolean;
 }
