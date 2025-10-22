@@ -33,45 +33,81 @@ export class FirebaseService implements OnModuleInit {
   private initializeFirebase() {
     if (!admin.apps.length) {
       try {
-        const possiblePaths = [
-          path.join(process.cwd(), 'ecommerce-neg-firebase.json'),
-          path.join(process.cwd(), 'firebase-credentials.json'),
-          path.join(process.cwd(), 'src', 'config', 'firebase-credentials.json'),
-        ];
+        let serviceAccount: admin.ServiceAccount;
+        let projectId: string;
 
-        let serviceAccountPath: string | null = null;
+        // ✅ PRIORIDAD 1: Variables de entorno (PRODUCCIÓN - RENDER)
+        const hasEnvVars = !!(
+          process.env.FIREBASE_PROJECT_ID &&
+          process.env.FIREBASE_PRIVATE_KEY &&
+          process.env.FIREBASE_CLIENT_EMAIL
+        );
 
-        console.log('\n Buscando credenciales de Firebase...');
-        
-        for (const pathToCheck of possiblePaths) {
-          if (fs.existsSync(pathToCheck)) {
-            serviceAccountPath = pathToCheck;
-            console.log(` Encontrado: ${pathToCheck}`);
-            break;
+        if (hasEnvVars) {
+          console.log('🔑 Usando credenciales desde variables de entorno');
+
+          serviceAccount = {
+            projectId: process.env.FIREBASE_PROJECT_ID!,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
+          } as admin.ServiceAccount;
+
+          projectId = process.env.FIREBASE_PROJECT_ID!;
+        } else {
+          // ✅ PRIORIDAD 2: Archivo JSON local (DESARROLLO)
+          console.log('📄 Buscando credenciales desde archivo JSON local...');
+
+          const possiblePaths = [
+            path.join(process.cwd(), 'ecommerce-neg-firebase.json'),
+            path.join(process.cwd(), 'firebase-credentials.json'),
+            path.join(process.cwd(), 'src', 'config', 'firebase-credentials.json'),
+          ];
+
+          let serviceAccountPath: string | null = null;
+
+          for (const pathToCheck of possiblePaths) {
+            if (fs.existsSync(pathToCheck)) {
+              serviceAccountPath = pathToCheck;
+              console.log(`✅ Encontrado: ${pathToCheck}`);
+              break;
+            }
           }
+
+          if (!serviceAccountPath) {
+            throw new Error(
+              '❌ No se encontraron credenciales de Firebase.\n\n' +
+                '📋 Soluciones:\n' +
+                '  • En producción (Render): Configura estas variables de entorno:\n' +
+                '    - FIREBASE_PROJECT_ID\n' +
+                '    - FIREBASE_CLIENT_EMAIL\n' +
+                '    - FIREBASE_PRIVATE_KEY (con saltos de línea reales, NO \\n)\n\n' +
+                '  • En desarrollo local: Coloca ecommerce-neg-firebase.json en la raíz\n',
+            );
+          }
+
+          const fileContent = JSON.parse(
+            fs.readFileSync(serviceAccountPath, 'utf8'),
+          );
+
+          if (!fileContent.project_id || !fileContent.private_key || !fileContent.client_email) {
+            throw new Error('Formato de credenciales inválido en el archivo JSON');
+          }
+
+          serviceAccount = fileContent as admin.ServiceAccount;
+          projectId = fileContent.project_id;
         }
 
-        if (!serviceAccountPath) {
-          throw new Error('Archivo de credenciales no encontrado');
-        }
-
-        const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-
-        if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
-          throw new Error('Formato de credenciales inválido');
-        }
-
-        //  USAR EL NUEVO FORMATO DE BUCKET
-        const storageBucket = `${serviceAccount.project_id}.firebasestorage.app`;
+        // Usar el nuevo formato de bucket
+        const storageBucket = `${projectId}.firebasestorage.app`;
 
         admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
-          storageBucket: storageBucket, // Usar .firebasestorage.app
+          credential: admin.credential.cert(serviceAccount),
+          storageBucket: storageBucket,
         });
 
-        console.log(`Firebase Admin SDK inicializado`);
-        console.log(`Project ID: ${serviceAccount.project_id}`);
-        console.log(`Storage Bucket: ${storageBucket}\n`);
+        console.log('✅ Firebase Admin SDK inicializado');
+        console.log(`📦 Project ID: ${projectId}`);
+        console.log(`🗄️  Storage Bucket: ${storageBucket}\n`);
       } catch (error: any) {
         console.error('❌ Error al inicializar Firebase:', error.message);
         throw error;
@@ -80,8 +116,6 @@ export class FirebaseService implements OnModuleInit {
 
     this.storage = admin.storage();
     this.bucket = this.storage.bucket();
-
-    // Verificar bucket
     this.verifyBucket();
   }
 
@@ -108,7 +142,7 @@ export class FirebaseService implements OnModuleInit {
     try {
       const opts = { ...DEFAULT_OPTIMIZATION, ...options };
       
-      console.log(`\nProcesando imagen...`);
+      console.log(`\n🖼️  Procesando imagen...`);
       const metadata = await sharp(buffer).metadata();
       
       console.log(`   Original: ${metadata.width}x${metadata.height}, ${(buffer.length / 1024).toFixed(2)} KB`);
@@ -172,7 +206,7 @@ export class FirebaseService implements OnModuleInit {
     folder: string = 'productos',
     options: ImageOptimizationOptions = {}
   ): Promise<{ url: string; thumbnailUrl?: string }> {
-    console.log('\n Subiendo imagen...');
+    console.log('\n📤 Subiendo imagen...');
     
     if (!file) {
       throw new BadRequestException('No se proporcionó archivo');
@@ -199,7 +233,7 @@ export class FirebaseService implements OnModuleInit {
       const { buffer: optimizedBuffer, format } = await this.optimizeImage(file.buffer, options);
       
       const fileName = `${folder}/${uniqueId}-${timestamp}.${format}`;
-      console.log(`\n Subiendo a: ${fileName}`);
+      console.log(`\n☁️  Subiendo a: ${fileName}`);
       
       const fileUpload = this.bucket.file(fileName);
 
@@ -219,13 +253,12 @@ export class FirebaseService implements OnModuleInit {
 
       console.log(`✅ Imagen subida exitosamente`);
 
-      //  URL con el nuevo formato de bucket
       const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${this.bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
 
       let thumbnailUrl: string | undefined;
       if (options.thumbnail !== false) {
         try {
-          console.log(`Creando thumbnail...`);
+          console.log(`🔄 Creando thumbnail...`);
           const thumbnailBuffer = await this.createThumbnail(optimizedBuffer);
           const thumbnailFileName = `${folder}/thumbnails/${uniqueId}-${timestamp}.webp`;
           const thumbnailUpload = this.bucket.file(thumbnailFileName);
@@ -243,7 +276,7 @@ export class FirebaseService implements OnModuleInit {
           });
 
           thumbnailUrl = `https://firebasestorage.googleapis.com/v0/b/${this.bucket.name}/o/${encodeURIComponent(thumbnailFileName)}?alt=media`;
-          console.log(` Thumbnail creado\n`);
+          console.log(`✅ Thumbnail creado\n`);
         } catch (thumbError: any) {
           console.warn(`⚠️  No se pudo crear thumbnail: ${thumbError.message}`);
         }
@@ -274,7 +307,7 @@ export class FirebaseService implements OnModuleInit {
         const [exists] = await file.exists();
         if (exists) {
           await file.delete();
-          console.log(`Imagen eliminada: ${fileName}`);
+          console.log(`🗑️  Imagen eliminada: ${fileName}`);
         }
         if (deleteThumbnail) {
           const thumbnailFileName = fileName.replace(/^productos\//, 'productos/thumbnails/');
@@ -286,7 +319,7 @@ export class FirebaseService implements OnModuleInit {
         }
       }
     } catch (error: any) {
-      console.error(' Error al eliminar:', error.message);
+      console.error('⚠️  Error al eliminar:', error.message);
     }
   }
 
@@ -305,10 +338,6 @@ export class FirebaseService implements OnModuleInit {
 
   private extractFileNameFromUrl(url: string): string | null {
     try {
-      // Manejar ambos formatos de URL
-      // Formato antiguo: https://storage.googleapis.com/bucket/file
-      // Formato nuevo: https://firebasestorage.googleapis.com/v0/b/bucket/o/file?alt=media
-      
       if (url.includes('firebasestorage.googleapis.com')) {
         const match = url.match(/\/o\/(.+?)\?/);
         return match ? decodeURIComponent(match[1]) : null;
