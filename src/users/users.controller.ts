@@ -238,7 +238,7 @@ export class UsersController {
     }
   })
   async updateRoleToProveedor(
-    @Param('userId') userId: string,
+    @Param('Id') userId: string,
     
   ) {
     return this.usersService.updateProveedorActive(userId);
@@ -291,7 +291,7 @@ export class UsersController {
     }
   })
   async updateRoleToAdmin(
-    @Param('userId') userId: string
+    @Param('id') userId: string
   ) {
     return this.usersService.updateToAdmin(userId);
   }
