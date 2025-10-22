@@ -1,6 +1,7 @@
 import { MetodoPago } from 'src/common/enums/metodo-pago.enum';
 import { UserRoles } from './../../common/enums/user-roles.enum';
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Producto } from 'src/productos/entities/producto.entity';
 
 @Entity()
 export class User {
@@ -59,4 +60,9 @@ export class User {
 
     @Column('text', { nullable: true })
     compraMinima?: string;
+
+     // ✅ RELACIÓN: Un proveedor puede tener MUCHOS productos
+    @OneToMany(() => Producto, (producto) => producto.proveedor)
+    productos?: Producto[];
+
 }

@@ -8,15 +8,23 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('aplicacion jalando');
 
+  
+
   app.setGlobalPrefix('api/v1');
   
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
-    forbidNonWhitelisted: true,
+    forbidNonWhitelisted: false,
     transform: true,
+    transformOptions:{
+      enableImplicitConversion: true,
+    }
   }));
 
-  app.enableCors();
+  app.enableCors({
+    origin: ['http://localhost:3000', 'http://localhost:5173'],
+    credentials: true,
+  });
 
   // Configurar OpenAPI/Swagger (base para Scalar)
   const config = new DocumentBuilder()

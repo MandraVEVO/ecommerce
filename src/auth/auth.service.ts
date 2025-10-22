@@ -274,74 +274,8 @@ export class AuthService {
     };
   }
 
-   async updateProveedor(userId: string) {
-    // 1. Verificar que el usuario existe
-    const user = await this.usersService.findById(userId);
-    
-    if (!user) {
-      throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
-    }
-
-    // 2. Verificar que el usuario esté activo
-    if (!user.isActive) {
-      throw new BadRequestException('El usuario está inactivo y no puede ser actualizado');
-    }
-
-    // 3. Verificar que no sea ya un proveedor
-    if (user.role === UserRoles.PROVEEDOR) {
-      throw new BadRequestException('El usuario ya tiene rol de proveedor');
-    }
-
-    // 4. Verificar que no sea un admin
-    if (user.role === UserRoles.ADMIN) {
-      throw new BadRequestException('No se puede cambiar el rol de un administrador');
-    }
-
-    // 5. Guardar el rol anterior
-    const previousRole = user.role;
-
-    // 6. Actualizar usando el método específico de UsersService
-    const updatedUser = await this.usersService.updateToProveedor(userId);
-
-    // 7. Retornar respuesta completa
-    return {
-      message: 'Rol actualizado a proveedor exitosamente',
-      previousRole: previousRole,
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        fullName: updatedUser.fullName,
-        role: updatedUser.role,
-        isActive: updatedUser.isActive,
-        updatedAt: new Date().toISOString(),
-      }
-    };
-  }
+   
 
 
-  async updateToAdmin(userId: string) {
-    const user = await this.usersService.findById(userId);
-    
-    if (!user) {
-      throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
-    }
-
-    if (!user.isActive) {
-      throw new BadRequestException('El usuario está inactivo y no puede ser actualizado');
-    }
-
-    const updatedUser = await this.usersService.updateToAdmin(userId);
-
-    return {
-      message: 'Rol actualizado a administrador exitosamente',
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        fullName: updatedUser.fullName,
-        role: updatedUser.role,
-        isActive: updatedUser.isActive,
-        updatedAt: new Date().toISOString(),
-      }
-    };
-  }
+  
 }

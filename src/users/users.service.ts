@@ -34,19 +34,32 @@ export class UsersService {
     });
   }
 
-  async softRemove(id: string) {
+ async softRemove(id: string) {
+    // 1. Verificar que el usuario existe
     const user = await this.findById(id);
     
     if (!user) {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
 
-    // Marcar como inactivo en lugar de eliminar
-    await this.userRepository.update(id, { isActive: false });
+    // 2. VALIDAR que solo se puedan eliminar CLIENTES o PROVEEDORES
+    if (user.role !== UserRoles.CLIENTE && user.role !== UserRoles.PROVEEDOR) {
+      throw new BadRequestException(
+        `No se puede eliminar usuarios con rol ${user.role}. Solo se pueden eliminar clientes y proveedores.`
+      );
+    }
+
+    // 3. Marcar como inactivo en lugar de eliminar
+    await this.userRepository.update(id, { 
+      isActive: false,
+      updatedAt: new Date(),
+    });
 
     return {
-      message: 'Usuario desactivado exitosamente',
-      userId: id
+      message: `Usuario ${user.role} desactivado exitosamente`,
+      userId: id,
+      userEmail: user.email,
+      userRole: user.role
     };
   }
 
@@ -101,9 +114,6 @@ export class UsersService {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
 
-    if (user.role !== UserRoles.PROVEEDOR) {
-      throw new BadRequestException('Este endpoint es solo para usuarios con rol de proveedor');
-    }
 
     
 
@@ -183,23 +193,147 @@ export class UsersService {
     return proveedor;
   }
 
-  remove(id: string) {
-    return this.userRepository.delete(id);
+  async findAllProveedoresInactivos() {
+    return this.userRepository.find({
+      where: { 
+        isActive: false,
+        role: UserRoles.PROVEEDOR 
+      },
+      select: ['id', 'email', 'fullName', 'role', 'isActive'], 
+      order: { createdAt: 'DESC' } 
+    });
   }
 
-  async updateToAdmin(id: string): Promise<User> {
+  async hardRemove(id: string) {
+    // 1. Verificar que el usuario existe
     const user = await this.findById(id);
+    
     if (!user) {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
-    await this.userRepository.update(id, { 
-      role: UserRoles.ADMIN 
-    });
-    const updatedUser = await this.findById(id);
-    if (!updatedUser) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado después de la actualización`);
+
+    //  2. VALIDAR que solo se puedan eliminar CLIENTES o PROVEEDORES
+    if (user.role !== UserRoles.CLIENTE && user.role !== UserRoles.PROVEEDOR) {
+      throw new BadRequestException(
+        `No se puede eliminar usuarios con rol ${user.role}. Solo se pueden eliminar clientes y proveedores.`
+      );
     }
-    return updatedUser;
+
+    // 3. Eliminar permanentemente
+    const result = await this.userRepository.delete(id);
+
+    if (result.affected === 0) {
+      throw new NotFoundException(`No se pudo eliminar el usuario con ID ${id}`);
+    }
+
+    return {
+      message: `Usuario ${user.role} eliminado permanentemente`,
+      userId: id,
+      userEmail: user.email,
+      userRole: user.role
+    };
+  }
+
+
+  async updateToAdmin(userId: string) {
+  // 1. Verificar que el usuario existe
+  const user = await this.findById(userId);
+  
+  if (!user) {
+    throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+  }
+
+  // 2. Verificar que el usuario esté activo
+  if (!user.isActive) {
+    throw new BadRequestException('El usuario está inactivo y no puede ser actualizado');
+  }
+
+  // 3. Verificar que no sea ya un admin
+  if (user.role === UserRoles.ADMIN) {
+    throw new BadRequestException('El usuario ya tiene rol de administrador');
+  }
+
+  // 4. Guardar el rol anterior
+  const previousRole = user.role;
+
+  // ✅ 5. ACTUALIZAR el rol a ADMIN en la base de datos
+  await this.userRepository.update(userId, { 
+    role: UserRoles.ADMIN,
+    updatedAt: new Date()
+  });
+
+  // ✅ 6. Obtener el usuario actualizado desde la BD
+  const updatedUser = await this.findById(userId);
+
+  if (!updatedUser) {
+    throw new NotFoundException(`Usuario con ID ${userId} no encontrado después de la actualización`);
+  }
+
+  // 7. Retornar respuesta completa
+  return {
+    message: 'Rol actualizado a administrador exitosamente',
+    previousRole: previousRole,
+    user: {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      fullName: updatedUser.fullName,
+      role: updatedUser.role,
+      isActive: updatedUser.isActive,
+      updatedAt: new Date().toISOString(),
+    }
+  };
+}
+
+  async updateProveedorActive(userId: string) {
+    // 1. Verificar que el usuario existe
+    const user = await this.findById(userId);
+    
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+    }
+
+    // 2. Verificar que no sea ya un proveedor
+    if (user.role === UserRoles.PROVEEDOR) {
+      throw new BadRequestException('El usuario ya tiene rol de proveedor');
+    }
+
+    // 3. Verificar que no sea un admin
+    if (user.role === UserRoles.ADMIN) {
+      throw new BadRequestException('No se puede cambiar el rol de un administrador');
+    }
+
+    // 4. Guardar el rol anterior
+    const previousRole = user.role;
+
+    // 5. ACTUALIZAR el rol a PROVEEDOR y activar
+    await this.userRepository.update(userId, { 
+      // role: UserRoles.PROVEEDOR,
+      isActive: true,
+      verificado: true,
+      updatedAt: new Date()
+    });
+
+    //  6. Obtener el usuario actualizado desde la BD
+    const updatedUser = await this.findById(userId);
+
+    if (!updatedUser) {
+      throw new NotFoundException(`Usuario con ID ${userId} no encontrado después de la actualización`);
+    }
+
+    // 7. Retornar respuesta completa
+    return {
+      message: 'Rol actualizado a proveedor exitosamente',
+      previousRole: previousRole,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        role: updatedUser.role,
+        isActive: updatedUser.isActive,
+        verificado: updatedUser.verificado,
+        updatedAt: new Date().toISOString(),
+      }
+    };
   }
   
 }
