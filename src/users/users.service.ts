@@ -316,12 +316,12 @@ export class UsersService {
 
     // 5. ACTUALIZAR el rol a PROVEEDOR y activar
     await this.userRepository.update(userId, { 
-      // role: UserRoles.PROVEEDOR,
+      role: UserRoles.PROVEEDOR,
       isActive: true,
       verificado: true,
       updatedAt: new Date()
     });
-
+ 
     //  6. Obtener el usuario actualizado desde la BD
     const updatedUser = await this.findById(userId);
 

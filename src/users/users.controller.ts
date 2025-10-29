@@ -238,7 +238,7 @@ export class UsersController {
     }
   })
   async updateRoleToProveedor(
-    @Param('Id') userId: string,
+    @Param('id') userId: string,
     
   ) {
     return this.usersService.updateProveedorActive(userId);
