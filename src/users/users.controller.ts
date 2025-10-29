@@ -297,5 +297,26 @@ export class UsersController {
   }
 
 
+  @Auth(UserRoles.ADMIN)
+  @Get('all')
+  @ApiOperation({ summary: 'Obtener todos los usuarios' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de todos los usuarios',
+    schema: {
+      example: [
+        {
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          email: "user@example.com",
+          fullName: "Juan Pérez",
+          role: "cliente",
+          isActive: true
+        }
+      ]
+    }
+  })
+  async getAllUsers() {
+    return this.usersService.getAllUsers();
+  }
 
 }

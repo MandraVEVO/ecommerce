@@ -6,6 +6,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProveedorDto } from './dto/updateProveedor.dto';
 import { User } from './entities/user.entity';
 import { UserRoles } from 'src/common/enums/user-roles.enum';
+import { retry } from 'rxjs';
 
 @Injectable()
 export class UsersService {
@@ -234,6 +235,12 @@ export class UsersService {
     };
   }
 
+  async getAllUsers(){
+    return this.userRepository.find({
+      select: ['id', 'email', 'fullName', 'role', 'isActive', 'createdAt', 'updatedAt'],
+      order: { createdAt: 'DESC' }
+    });
+  }
 
   async updateToAdmin(userId: string) {
   // ❌ INCORRECTO - Probablemente tienes algo así:
